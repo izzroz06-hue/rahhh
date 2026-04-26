@@ -1,0 +1,93 @@
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+
+local ORB_FOLDER = workspace:WaitForChild("EnergyOrbs")
+local TELEPORT_KEY = Enum.KeyCode.T
+local HEIGHT_OFFSET = 3 -- studs above orb
+
+local player = Players.LocalPlayer
+local holding = false
+
+local function getCharacterRoot()
+    local char = player.Character or player.CharacterAdded:Wait()
+    return char:FindFirstChild("HumanoidRootPart")
+end
+
+local function getNearestOrb(root)
+    local nearest, dist = nil, math.huge
+    for _, obj in ipairs(ORB_FOLDER:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            local d = (obj.Position - root.Position).Magnitude
+            if d < dist then
+                dist = d
+                nearest = obj
+            end
+        end
+    end
+    return nearest
+end
+
+task.spawn(function()
+    while true do
+        task.wait()
+        if holding then
+            local root = getCharacterRoot()
+            if root then
+                local orb = getNearestOrb(root)
+                if orb then
+                    root.CFrame = CFrame.new(
+                        orb.Position + Vector3.new(0, HEIGHT_OFFSET, 0),
+                        orb.Position
+                    )
+                end
+            end
+        end
+    end
+end)
+
+UIS.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == TELEPORT_KEY then
+        holding = true
+    end
+end)
+
+UIS.InputEnded:Connect(function(input, gpe)
+    if input.KeyCode == TELEPORT_KEY then
+        holding = false
+    end
+end)
+
+if UIS.TouchEnabled then
+    local gui = Instance.new("ScreenGui")
+    gui.ResetOnSpawn = false
+    gui.Name = "TPGui"
+    gui.Parent = player:WaitForChild("PlayerGui")
+
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(0, 120, 0, 120)
+    button.Position = UDim2.new(1, -140, 1, -140)
+    button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    button.BackgroundTransparency = 0.2
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.Font = Enum.Font.GothamBold
+    button.TextScaled = true
+    button.Text = "TP"
+    button.Parent = gui
+
+    button.MouseButton1Down:Connect(function()
+        holding = true
+    end)
+
+    button.MouseButton1Up:Connect(function()
+        holding = false
+    end)
+
+    button.TouchLongPress:Connect(function(_, state)
+        if state == Enum.UserInputState.Begin then
+            holding = true
+        else
+            holding = false
+        end
+    end)
+end
