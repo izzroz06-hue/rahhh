@@ -1,33 +1,33 @@
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 
 local ORB_FOLDER = workspace:WaitForChild("EnergyOrbs")
 local TELEPORT_KEY = Enum.KeyCode.T
-local HEIGHT_OFFSET = 0 -- we freeze INSIDE the orb now
 
 local player = Players.LocalPlayer
 local holding = false
+local currentTween = nil
 
--- Freeze function
+-- Freeze movement but keep collisions
 local function freezeCharacter(char)
     local hum = char:FindFirstChildOfClass("Humanoid")
     if hum then
-        hum.AutoRotate = false
         hum.WalkSpeed = 0
         hum.JumpPower = 0
         hum.JumpHeight = 0
-        hum.PlatformStand = true
+        hum.AutoRotate = false
+        hum.PlatformStand = false -- collisions stay ON
     end
 end
 
--- Unfreeze function
 local function unfreezeCharacter(char)
     local hum = char:FindFirstChildOfClass("Humanoid")
     if hum then
-        hum.AutoRotate = true
         hum.WalkSpeed = 16
         hum.JumpPower = 50
         hum.JumpHeight = 7.2
+        hum.AutoRotate = true
         hum.PlatformStand = false
     end
 end
@@ -51,19 +51,33 @@ local function getNearestOrb(root)
     return nearest
 end
 
--- Teleport loop
+local function tweenToOrb(root, orb)
+    if currentTween then
+        currentTween:Cancel()
+    end
+
+    local goal = {}
+    goal.CFrame = CFrame.new(orb.Position)
+
+    currentTween = TweenService:Create(
+        root,
+        TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+        goal
+    )
+
+    currentTween:Play()
+end
+
 task.spawn(function()
     while true do
-        task.wait()
+        task.wait(0.05)
         if holding then
             local char, root = getCharacterRoot()
             if root then
                 local orb = getNearestOrb(root)
                 if orb then
-                    root.CFrame = CFrame.new(
-                        orb.Position + Vector3.new(0, HEIGHT_OFFSET, 0)
-                    )
                     freezeCharacter(char)
+                    tweenToOrb(root, orb)
                 end
             end
         else
@@ -75,7 +89,6 @@ task.spawn(function()
     end
 end)
 
--- Keyboard input
 UIS.InputBegan:Connect(function(input, gpe)
     if gpe then return end
     if input.KeyCode == TELEPORT_KEY then
@@ -108,21 +121,16 @@ if UIS.TouchEnabled then
     button.Parent = gui
     button.AutoButtonColor = false
     button.BorderSizePixel = 0
-    button.ClipsDescendants = true
 
-    -- Make it circular
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(1, 0)
     corner.Parent = button
 
-    -- Glow
     local uiStroke = Instance.new("UIStroke")
     uiStroke.Thickness = 3
     uiStroke.Color = Color3.fromRGB(0, 170, 255)
-    uiStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     uiStroke.Parent = button
 
-    -- Press animation
     button.MouseButton1Down:Connect(function()
         holding = true
         button.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
@@ -133,14 +141,5 @@ if UIS.TouchEnabled then
         holding = false
         button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
         uiStroke.Thickness = 3
-    end)
-
-    -- Touch long press support
-    button.TouchLongPress:Connect(function(_, state)
-        if state == Enum.UserInputState.Begin then
-            holding = true
-        else
-            holding = false
-        end
     end)
 end
