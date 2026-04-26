@@ -3,14 +3,38 @@ local UIS = game:GetService("UserInputService")
 
 local ORB_FOLDER = workspace:WaitForChild("EnergyOrbs")
 local TELEPORT_KEY = Enum.KeyCode.T
-local HEIGHT_OFFSET = 3 -- studs above orb
+local HEIGHT_OFFSET = 0 -- we freeze INSIDE the orb now
 
 local player = Players.LocalPlayer
 local holding = false
 
+-- Freeze function
+local function freezeCharacter(char)
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.AutoRotate = false
+        hum.WalkSpeed = 0
+        hum.JumpPower = 0
+        hum.JumpHeight = 0
+        hum.PlatformStand = true
+    end
+end
+
+-- Unfreeze function
+local function unfreezeCharacter(char)
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.AutoRotate = true
+        hum.WalkSpeed = 16
+        hum.JumpPower = 50
+        hum.JumpHeight = 7.2
+        hum.PlatformStand = false
+    end
+end
+
 local function getCharacterRoot()
     local char = player.Character or player.CharacterAdded:Wait()
-    return char:FindFirstChild("HumanoidRootPart")
+    return char, char:FindFirstChild("HumanoidRootPart")
 end
 
 local function getNearestOrb(root)
@@ -27,24 +51,31 @@ local function getNearestOrb(root)
     return nearest
 end
 
+-- Teleport loop
 task.spawn(function()
     while true do
         task.wait()
         if holding then
-            local root = getCharacterRoot()
+            local char, root = getCharacterRoot()
             if root then
                 local orb = getNearestOrb(root)
                 if orb then
                     root.CFrame = CFrame.new(
-                        orb.Position + Vector3.new(0, HEIGHT_OFFSET, 0),
-                        orb.Position
+                        orb.Position + Vector3.new(0, HEIGHT_OFFSET, 0)
                     )
+                    freezeCharacter(char)
                 end
+            end
+        else
+            local char = player.Character
+            if char then
+                unfreezeCharacter(char)
             end
         end
     end
 end)
 
+-- Keyboard input
 UIS.InputBegan:Connect(function(input, gpe)
     if gpe then return end
     if input.KeyCode == TELEPORT_KEY then
@@ -58,6 +89,7 @@ UIS.InputEnded:Connect(function(input, gpe)
     end
 end)
 
+-- Mobile button
 if UIS.TouchEnabled then
     local gui = Instance.new("ScreenGui")
     gui.ResetOnSpawn = false
@@ -65,24 +97,45 @@ if UIS.TouchEnabled then
     gui.Parent = player:WaitForChild("PlayerGui")
 
     local button = Instance.new("TextButton")
-    button.Size = UDim2.new(0, 120, 0, 120)
-    button.Position = UDim2.new(1, -140, 1, -140)
-    button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    button.BackgroundTransparency = 0.2
+    button.Size = UDim2.new(0, 110, 0, 110)
+    button.Position = UDim2.new(1, -130, 1, -150)
+    button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    button.BackgroundTransparency = 0.15
     button.TextColor3 = Color3.fromRGB(255, 255, 255)
     button.Font = Enum.Font.GothamBold
     button.TextScaled = true
     button.Text = "TP"
     button.Parent = gui
+    button.AutoButtonColor = false
+    button.BorderSizePixel = 0
+    button.ClipsDescendants = true
 
+    -- Make it circular
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(1, 0)
+    corner.Parent = button
+
+    -- Glow
+    local uiStroke = Instance.new("UIStroke")
+    uiStroke.Thickness = 3
+    uiStroke.Color = Color3.fromRGB(0, 170, 255)
+    uiStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    uiStroke.Parent = button
+
+    -- Press animation
     button.MouseButton1Down:Connect(function()
         holding = true
+        button.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+        uiStroke.Thickness = 5
     end)
 
     button.MouseButton1Up:Connect(function()
         holding = false
+        button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        uiStroke.Thickness = 3
     end)
 
+    -- Touch long press support
     button.TouchLongPress:Connect(function(_, state)
         if state == Enum.UserInputState.Begin then
             holding = true
